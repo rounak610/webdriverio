@@ -565,7 +565,7 @@ export const performA11yScan = async (isAppAutomate: boolean, browser: Webdriver
         const fnBody = AccessibilityScripts.performScan || ''
         const arg = { method: commandName || '' }
         const results = await browser.execute(
-            `return (await function (...bstackSdkArgs) {
+            `return (function (...bstackSdkArgs) {
                 return new Promise((resolve, reject) => {
                     bstackSdkArgs.push(resolve);
                     ${fnBody.replace(/arguments/g, 'bstackSdkArgs')}
@@ -595,7 +595,7 @@ export const getA11yResults = async (isAppAutomate: boolean, browser: WebdriverI
         await performA11yScan(isAppAutomate, browser, isBrowserStackSession, isAccessibility)
         const fnBody = AccessibilityScripts.getResults || ''
         const results: Array<{ [key: string]: unknown }> = await browser.execute(
-            `return (await function (...bstackSdkArgs) {
+            `return (function (...bstackSdkArgs) {
                 return new Promise((resolve, reject) => {
                     bstackSdkArgs.push(resolve);
                     ${fnBody.replace(/arguments/g, 'bstackSdkArgs')}
@@ -681,7 +681,7 @@ export const getA11yResultsSummary = async (isAppAutomate: boolean, browser: Web
         await performA11yScan(isAppAutomate, browser, isBrowserStackSession, isAccessibility)
         const fnBody = AccessibilityScripts.getResultsSummary || ''
         const summaryResults: { [key: string]: unknown; } = await browser.execute(
-            `return (await function (...bstackSdkArgs) {
+            `return (function (...bstackSdkArgs) {
                 return new Promise((resolve, reject) => {
                     bstackSdkArgs.push(resolve);
                     ${fnBody.replace(/arguments/g, 'bstackSdkArgs')}
