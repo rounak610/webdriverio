@@ -2,6 +2,7 @@ name: Unit Tests
 
 on:
   workflow_call:
+  workflow_dispatch:
     # Make this a reusable workflow, no value needed
     # https://docs.github.com/en/actions/using-workflows/reusing-workflows
 
