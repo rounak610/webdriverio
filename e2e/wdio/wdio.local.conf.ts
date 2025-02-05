@@ -26,14 +26,14 @@ export const config: Options.Testrunner = {
         browserName: 'chrome',
         webSocketUrl: true,
         'goog:chromeOptions': {
-            args: ['headless', 'disable-gpu', `--user-data-dir=${getUniqueUserDataDir('chrome')}`, '--no-sandbox',]
+            args: ['headless', 'disable-gpu', `--user-data-dir=${getUniqueUserDataDir('chrome')}`,]
         }
     }, {
         browserName: 'chrome',
         browserVersion: 'canary',
         webSocketUrl: true,
         'goog:chromeOptions': {
-            args: ['headless', 'disable-gpu', `--user-data-dir=${getUniqueUserDataDir('chrome-canary')}`, '--no-sandbox',]
+            args: ['headless', 'disable-gpu', `--user-data-dir=${getUniqueUserDataDir('chrome-canary')}`,]
         }
     }, {
         browserName: 'firefox',
@@ -77,7 +77,7 @@ if (os.platform() !== 'win32') {
         browserName: 'chromium',
         webSocketUrl: true,
         'goog:chromeOptions': {
-            args: ['headless', 'disable-gpu', `--user-data-dir=${getUniqueUserDataDir('chromium')}`, '--no-sandbox',]
+            args: ['headless', 'disable-gpu', `--user-data-dir=${getUniqueUserDataDir('chromium')}`,]
         }
     })
 }
