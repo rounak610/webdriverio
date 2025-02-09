@@ -920,16 +920,26 @@ export function patchConsoleLogs() {
     const BSTestOpsPatcher = new logPatcher({})
 
     Object.keys(consoleHolder).forEach((method: keyof typeof console) => {
+        if (!(method in console) || typeof console[method] !== 'function') {
+            log.debug(`Skipping method: ${method}, exists: ${method in console}, type: ${typeof console[method]}`)
+            return
+        }
         const origMethod = (console[method] as any).bind(console)
 
         // Make sure we don't override Constructors
         // Arrow functions are not construable
-        if (typeof console[method] === 'function'
-            && method !== 'Console'
-        ) {
+        if (typeof console[method] === 'function' && method !== 'Console') {
             (console as any)[method] = (...args: unknown[]) => {
-                origMethod(...args);
-                (BSTestOpsPatcher as any)[method](...args)
+                try {
+                    if (!Object.keys(BSTestOpsPatcher).includes(method)) {
+                        origMethod(...args)
+                    } else {
+                        origMethod(...args);
+                        (BSTestOpsPatcher as any)[method](...args)
+                    }
+                } catch (error) {
+                    origMethod(...args)
+                }
             }
         }
     })
