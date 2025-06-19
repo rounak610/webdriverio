@@ -7,6 +7,8 @@ import { HookState } from '../states/hookState.js'
 import { AutomationFrameworkState } from '../states/automationFrameworkState.js'
 import PercyHandler from '../../Percy/Percy-Handler.js'
 import type { Capabilities } from '@wdio/types'
+import { TestFrameworkConstants } from '../frameworks/constants/testFrameworkConstants.js'
+import type TestFrameworkInstance from '../instances/testFrameworkInstance.js'
 
 export default class PercyModule extends BaseModule {
 
@@ -69,7 +71,8 @@ export default class PercyModule extends BaseModule {
     }
 
     async onBeforeTest(args: Record<string, unknown>) {
-        const sessionName = (args as any).sessionName
+        const instace = args.instance as TestFrameworkInstance
+        const sessionName = TestFramework.getState(instace, TestFrameworkConstants.KEY_AUTOMATE_SESSION_NAME)
         if (!this.percyHandler) {
             this.logger.warn('PercyModule: Percy handler is not initialized, skipping pre execute actions')
             return

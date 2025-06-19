@@ -277,7 +277,9 @@ export default class BrowserstackService implements Services.ServiceInstance {
         this._accessibilityHandler?.setSuiteFile(suite.file)
 
         if (suite.title && suite.title !== 'Jasmine__TopLevel__Suite') {
-            await this._setSessionName(suite.title)
+            if (!BrowserstackCLI.getInstance().isRunning() || this._config.framework !== 'mocha'){
+                await this._setSessionName(suite.title)
+            }
         }
     }
 
@@ -298,6 +300,7 @@ export default class BrowserstackService implements Services.ServiceInstance {
     async beforeTest (test: Frameworks.Test) {
         this._currentTest = test
         let suiteTitle = this._suiteTitle
+        BStackLogger.debug(`This is my suitetitle ${suiteTitle}`)
 
         if (test.fullName) {
             // For Jasmine, `suite.title` is `Jasmine__TopLevel__Suite`.
@@ -310,7 +313,6 @@ export default class BrowserstackService implements Services.ServiceInstance {
             }
         }
 
-        const sessionName = await this._setSessionName(suiteTitle, test)
         await this._setAnnotation(`Test: ${test.fullName ?? test.title}`)
         await this._accessibilityHandler?.beforeTest(suiteTitle, test)
 
@@ -318,9 +320,10 @@ export default class BrowserstackService implements Services.ServiceInstance {
             await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.INIT_TEST, HookState.PRE, { test })
             const uuid = TestFramework.getState(TestFramework.getTrackedInstance(), TestFrameworkConstants.KEY_TEST_UUID)
             this._insightsHandler?.setTestData(test, uuid)
-            await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.TEST, HookState.PRE, { test, sessionName: sessionName })
+            await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.TEST, HookState.PRE, { test, suiteTitle })
             return
         }
+        await this._setSessionName(suiteTitle, test)
         await this._insightsHandler?.beforeTest(test)
     }
 
@@ -354,7 +357,8 @@ export default class BrowserstackService implements Services.ServiceInstance {
         }
 
         await PerformanceTester.measureWrapper(PERFORMANCE_SDK_EVENTS.AUTOMATE_EVENTS.SESSION_STATUS, async () => {
-            if (setSessionStatus) {
+            if (setSessionStatus && !BrowserstackCLI.getInstance().isRunning()) {
+                BStackLogger.debug(`Setting session status to ${result === 0 ? 'passed' : 'failed'}`)
                 const hasReasons = this._failReasons.length > 0
                 await this._updateJob({
                     status: result === 0 && this._specsRan ? 'passed' : 'failed',
@@ -599,8 +603,6 @@ export default class BrowserstackService implements Services.ServiceInstance {
             this._fullTitle = name
             await this._updateJob({ name })
         }
-
-        return name
     }
 
     private _setAnnotation(data: string) {
