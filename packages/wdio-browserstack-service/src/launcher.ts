@@ -214,7 +214,7 @@ export default class BrowserstackLauncherService implements Services.ServiceInst
                 BrowserstackCLI.getInstance().setBrowserstackConfig(config)
                 CLIUtils.setFrameworkDetail('WebdriverIO-' + config.framework, 'WebdriverIO') // TODO: make this constant
                 const binconfig = CLIUtils.getBinConfig(config, capabilities, this._options)
-                await BrowserstackCLI.getInstance().bootstrap(binconfig)
+                await BrowserstackCLI.getInstance().bootstrap(this._options, binconfig)
                 BStackLogger.debug(`Is CLI running ${BrowserstackCLI.getInstance().isRunning()}`)
             }
         } catch (err) {
@@ -249,32 +249,34 @@ export default class BrowserstackLauncherService implements Services.ServiceInst
          * Upload app to BrowserStack if valid file path to app is given.
          * Update app value of capability directly if app_url, custom_id, shareable_id is given
          */
-        if (!this._options.app) {
-            BStackLogger.debug('app is not defined in browserstack-service config, skipping ...')
-        } else {
-            let app: App = {}
-            const appConfig: AppConfig | string = this._options.app
+        if (!BrowserstackCLI.getInstance().isRunning()) {
+            if (!this._options.app) {
+                BStackLogger.debug('app is not defined in browserstack-service config, skipping ...')
+            } else {
+                let app: App = {}
+                const appConfig: AppConfig | string = this._options.app
 
-            try {
-                app = await this._validateApp(appConfig)
-            } catch (error: any){
-                throw new SevereServiceError(error)
-            }
-
-            if (VALID_APP_EXTENSION.includes(path.extname(app.app!))){
-                if (fs.existsSync(app.app!)) {
-                    const data: AppUploadResponse = await this._uploadApp(app)
-                    BStackLogger.info(`app upload completed: ${JSON.stringify(data)}`)
-                    app.app = data.app_url
-                } else if (app.customId){
-                    app.app = app.customId
-                } else {
-                    throw new SevereServiceError(`[Invalid app path] app path ${app.app} is not correct, Provide correct path to app under test`)
+                try {
+                    app = await this._validateApp(appConfig)
+                } catch (error: any){
+                    throw new SevereServiceError(error)
                 }
-            }
 
-            BStackLogger.info(`Using app: ${app.app}`)
-            this._updateCaps(capabilities, 'app', app.app)
+                if (VALID_APP_EXTENSION.includes(path.extname(app.app!))){
+                    if (fs.existsSync(app.app!)) {
+                        const data: AppUploadResponse = await this._uploadApp(app)
+                        BStackLogger.info(`app upload completed: ${JSON.stringify(data)}`)
+                        app.app = data.app_url
+                    } else if (app.customId){
+                        app.app = app.customId
+                    } else {
+                        throw new SevereServiceError(`[Invalid app path] app path ${app.app} is not correct, Provide correct path to app under test`)
+                    }
+                }
+
+                BStackLogger.info(`Using app: ${app.app}`)
+                this._updateCaps(capabilities, 'app', app.app)
+            }
         }
 
         /**

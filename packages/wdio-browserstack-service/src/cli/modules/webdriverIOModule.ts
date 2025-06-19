@@ -52,6 +52,8 @@ export default class WebdriverIOModule extends BaseModule {
                 this.logger.warn('onBeforeDriverCreate: No capabilities provided')
                 return
             }
+            AutomationFramework.setState(instance, AutomationFrameworkConstants.KEY_INPUT_CAPABILITIES, capabilities)
+
             await this.getBinDriverCapabilities(instance, capabilities)
         } catch (e){
             this.logger.error(`Error in onBeforeDriverCreate: ${util.format(e)}`)

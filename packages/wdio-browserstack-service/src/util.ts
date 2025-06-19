@@ -53,6 +53,7 @@ import { FileStream } from './fileStream.js'
 import AccessibilityScripts from './scripts/accessibility-scripts.js'
 import UsageStats from './testOps/usageStats.js'
 import TestOpsConfig from './testOps/testOpsConfig.js'
+import type { StartBinSessionResponse } from './proto/sdk-messages.js'
 
 const pGitconfig = promisify(gitconfig)
 
@@ -320,7 +321,7 @@ export const jsonifyAccessibilityArray = (
     return result
 }
 
-export const  processAccessibilityResponse = (response: LaunchResponse, options: BrowserstackConfig & Options.Testrunner) => {
+export const  processAccessibilityResponse = (response: LaunchResponse | StartBinSessionResponse, options: BrowserstackConfig & Options.Testrunner) => {
     if (!response.accessibility) {
         if (options.accessibility === true) {
             handleErrorForAccessibility(null)
@@ -337,7 +338,7 @@ export const  processAccessibilityResponse = (response: LaunchResponse, options:
         const result = jsonifyAccessibilityArray(response.accessibility.options.capabilities, 'name', 'value')
         const scriptsJson = {
             'scripts': jsonifyAccessibilityArray(response.accessibility.options.scripts, 'name', 'command'),
-            'commands': response.accessibility.options.commandsToWrap.commands,
+            'commands': response.accessibility.options.commandsToWrap?.commands ?? [],
             'nonBStackInfraA11yChromeOptions': result['goog:chromeOptions']
         }
         if (scannerVersion) {

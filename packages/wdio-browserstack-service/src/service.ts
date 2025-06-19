@@ -29,9 +29,9 @@ import AiHandler from './ai-handler.js'
 import PerformanceTester from './instrumentation/performance/performance-tester.js'
 import * as PERFORMANCE_SDK_EVENTS from './instrumentation/performance/constants.js'
 import { BrowserstackCLI } from './cli/index.js'
-import { AutomationFrameworkState } from './cli/states/automationFrameworkState.js'
-import { HookState } from './cli/states/hookState.js'
 import { TestFrameworkState } from './cli/states/testFrameworkState.js'
+import { HookState } from './cli/states/hookState.js'
+import { AutomationFrameworkState } from './cli/states/automationFrameworkState.js'
 import TestFramework from './cli/frameworks/testFramework.js'
 import { TestFrameworkConstants } from './cli/frameworks/constants/testFrameworkConstants.js'
 import { AutomationFrameworkConstants } from './cli/frameworks/constants/automationFrameworkConstants.js'
@@ -124,7 +124,7 @@ export default class BrowserstackService implements Services.ServiceInstance {
         try {
             if (this._config.framework === 'mocha') {
                 // Connect to Browserstack CLI from worker
-                await BrowserstackCLI.getInstance().bootstrap()
+                await BrowserstackCLI.getInstance().bootstrap(this._options)
 
                 // Get the nearest hub and update it in config
                 const hubUrl = BrowserstackCLI.getInstance().getConfig().hubUrl as string
@@ -133,7 +133,7 @@ export default class BrowserstackService implements Services.ServiceInstance {
                 }
             }
             if (BrowserstackCLI.getInstance().isRunning()) {
-                await BrowserstackCLI.getInstance().getAutomationFramework()!.trackEvent(AutomationFrameworkState.CREATE, HookState.PRE, { caps: this._caps })
+                await BrowserstackCLI.getInstance().getAutomationFramework()!.trackEvent(AutomationFrameworkState.CREATE, HookState.PRE, { caps: capabilities })
             }
             const instance = AutomationFramework.getTrackedInstance() as AutomationFrameworkInstance
             const caps = AutomationFramework.getState(instance, AutomationFrameworkConstants.KEY_CAPABILITIES)
@@ -176,7 +176,6 @@ export default class BrowserstackService implements Services.ServiceInstance {
         if (this._browser) {
             try {
                 const sessionId = this._browser.sessionId
-
                 try {
                     this._accessibilityHandler = new AccessibilityHandler(
                         this._browser,
@@ -189,7 +188,12 @@ export default class BrowserstackService implements Services.ServiceInstance {
                         this._turboScale,
                         this._options.accessibilityOptions
                     )
-                    await this._accessibilityHandler.before(sessionId)
+                    if (isBrowserstackSession(this._browser) && BrowserstackCLI.getInstance().isRunning()){
+                        BStackLogger.info(`CLI is running, tracking accessibility event for before: ${sessionId}`)
+                        // BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(AutomationFrameworkState.CREATE, HookState.POST, { sessionId })
+                    } else {
+                        await this._accessibilityHandler.before(sessionId)
+                    }
                     Listener.setAccessibilityOptions(this._options.accessibilityOptions)
                 } catch (err) {
                     BStackLogger.error(`[Accessibility Test Run] Error in service class before function: ${err}`)
@@ -320,7 +324,6 @@ export default class BrowserstackService implements Services.ServiceInstance {
         }
 
         await this._setAnnotation(`Test: ${test.fullName ?? test.title}`)
-        await this._accessibilityHandler?.beforeTest(suiteTitle, test)
 
         if (BrowserstackCLI.getInstance().isRunning()) {
             await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.INIT_TEST, HookState.PRE, { test })
@@ -330,6 +333,7 @@ export default class BrowserstackService implements Services.ServiceInstance {
             return
         }
         await this._setSessionName(suiteTitle, test)
+        await this._accessibilityHandler?.beforeTest(suiteTitle, test)
         await this._insightsHandler?.beforeTest(test)
     }
 
@@ -341,16 +345,14 @@ export default class BrowserstackService implements Services.ServiceInstance {
             this._failReasons.push((error && error.message) || 'Unknown Error')
         }
 
-        await this._accessibilityHandler?.afterTest(this._suiteTitle, test)
-        if (!BrowserstackCLI.getInstance().isRunning()) {
-            await this._percyHandler?.afterTest()
-        }
         if (BrowserstackCLI.getInstance().isRunning()) {
             await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.LOG_REPORT, HookState.POST, { test, result: results })
-            await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.TEST, HookState.POST, { test, result: results })
+            await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.TEST, HookState.POST, { test, result: results, suiteTite: this._suiteTitle })
             return
         }
+        await this._accessibilityHandler?.afterTest(this._suiteTitle, test)
         await this._insightsHandler?.afterTest(test, results)
+        await this._percyHandler?.afterTest()
     }
 
     @PerformanceTester.Measure(PERFORMANCE_SDK_EVENTS.EVENTS.SDK_HOOK, { hookType: 'after' })

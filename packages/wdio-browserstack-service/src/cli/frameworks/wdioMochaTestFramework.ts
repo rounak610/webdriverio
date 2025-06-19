@@ -11,6 +11,7 @@ import { TestFrameworkConstants } from './constants/testFrameworkConstants.js'
 import { BStackLogger as logger } from '../cliLogger.js'
 import type { Frameworks } from '@wdio/types'
 import { getGitMetaData, getHierarchyFromTest, getUniqueIdentifier, isUndefined, removeAnsiColors } from '../../util.js'
+import { TEST_ANALYTICS_ID } from '../../constants.js'
 
 export default class WdioMochaTestFramework extends TestFramework {
     static KEY_HOOK_LAST_STARTED = 'test_hook_last_started'
@@ -80,7 +81,6 @@ export default class WdioMochaTestFramework extends TestFramework {
         } catch (error) {
             logger.error(`trackEvent: Error in tracking events: ${error} hookState=${hookState} testFrameworkState=${testFrameworkState}`)
         }
-
         args.instance = instance
         await this.runHooks(instance, testFrameworkState, hookState, args)
     }
@@ -137,6 +137,9 @@ export default class WdioMochaTestFramework extends TestFramework {
             // TODO[CLI]: Add customRerunParam
             // [TestFrameworkConstants.KEY_TEST_RERUN_NAME]:
         }
+
+        // Setting test uuid in env variable for A11y and App a11y scans
+        process.env[TEST_ANALYTICS_ID] = instanceEntries[TestFrameworkConstants.KEY_TEST_UUID] as string
 
         instance.updateMultipleEntries(instanceEntries)
 

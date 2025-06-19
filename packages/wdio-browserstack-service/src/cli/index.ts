@@ -12,13 +12,16 @@ import TestHubModule from './modules/testHubModule.js'
 import type { ChildProcess } from 'node:child_process'
 import type { StartBinSessionResponse } from '../proto/sdk-messages.js'
 import type BaseModule from './modules/baseModule.js'
-import { BROWSERSTACK_OBSERVABILITY, BROWSERSTACK_TESTHUB_JWT, BROWSERSTACK_TESTHUB_UUID, CLI_STOP_TIMEOUT, TESTOPS_BUILD_COMPLETED_ENV, TESTOPS_SCREENSHOT_ENV } from '../constants.js'
+import { BROWSERSTACK_ACCESSIBILITY, BROWSERSTACK_OBSERVABILITY, BROWSERSTACK_TESTHUB_JWT, BROWSERSTACK_TESTHUB_UUID, CLI_STOP_TIMEOUT, TESTOPS_BUILD_COMPLETED_ENV, TESTOPS_SCREENSHOT_ENV } from '../constants.js'
 import type { Options } from '@wdio/types'
 import TestOpsConfig from '../testOps/testOpsConfig.js'
 import WdioMochaTestFramework from './frameworks/wdioMochaTestFramework.js'
 import WdioAutomationFramework from './frameworks/wdioAutomationFramework.js'
 import WebdriverIOModule from './modules/webdriverIOModule.js'
+import AccessibilityModule from './modules/accessibilityModule.js'
+import { processAccessibilityResponse } from '../util.js'
 import ObservabilityModule from './modules/observabilityModule.js'
+import type { BrowserstackConfig, BrowserstackOptions } from '../types.js'
 import PercyModule from './modules/percyModule.js'
 
 /**
@@ -45,6 +48,7 @@ export class BrowserstackCLI {
     automationFramework: WdioAutomationFramework|null = null
     SDK_CLI_BIN_PATH: string | null = null
     logger = BStackLogger
+    options: BrowserstackConfig & BrowserstackOptions | {}
 
     constructor() {
         this.initialized = false
@@ -52,6 +56,7 @@ export class BrowserstackCLI {
         this.cliArgs = {}
         this.browserstackConfig = {}
         this.wdioConfig = ''
+        this.options = {}
     }
 
     /**
@@ -70,9 +75,10 @@ export class BrowserstackCLI {
      * Initializes and starts the CLI based on environment settings
      * @returns {Promise<void>}
      */
-    async bootstrap(wdioConfig='') {
+    async bootstrap(options: BrowserstackConfig & BrowserstackOptions, wdioConfig='',) {
         PerformanceTester.start(PerformanceEvents.SDK_CLI_ON_BOOTSTRAP)
         BrowserstackCLI.enabled = true
+        this.options = options
         try {
             const binSessionId = process.env.BROWSERSTACK_CLI_BIN_SESSION_ID || null
 
@@ -140,12 +146,16 @@ export class BrowserstackCLI {
                 if (startBinResponse.observability.options?.allowScreenshots) {
                     process.env[TESTOPS_SCREENSHOT_ENV] = startBinResponse.observability.options.allowScreenshots.toString()
                 }
+                this.modules[ObservabilityModule.MODULE_NAME] = new ObservabilityModule(startBinResponse.observability)
             }
-            this.modules[TestHubModule.MODULE_NAME] = new TestHubModule(startBinResponse.testhub)
-        }
 
-        if (startBinResponse.observability?.success) {
-            this.modules[ObservabilityModule.MODULE_NAME] = new ObservabilityModule(startBinResponse.observability)
+            this.modules[TestHubModule.MODULE_NAME] = new TestHubModule(startBinResponse.testhub)
+
+            if (startBinResponse.accessibility?.success){
+                process.env[BROWSERSTACK_ACCESSIBILITY] = 'true'
+                processAccessibilityResponse(startBinResponse, this.options as BrowserstackConfig & BrowserstackOptions)
+                this.modules[AccessibilityModule.MODULE_NAME] = new AccessibilityModule(startBinResponse.accessibility)
+            }
         }
         if (startBinResponse.percy?.success) {
             this.modules[PercyModule.MODULE_NAME] = new PercyModule(startBinResponse.percy)
