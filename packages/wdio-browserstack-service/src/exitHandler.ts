@@ -28,21 +28,67 @@ function getInterruptSignals(): string[] {
 }
 
 export function setupExitHandlers() {
+    // Capture stack trace BEFORE exit occurs
+    const originalExit = process.exit
+    process.exit = function(code) {
+        const exitStack = new Error().stack
+        BStackLogger.debug(`ACTUAL process.exit() called from: ${exitStack}`)
+        return originalExit.call(this, code)
+    }
+
     process.on('exit', (code) => {
-        BStackLogger.debug('Exit hook called')
+        BStackLogger.debug(`Exit hook called with code: ${code}`)
         const args = shouldCallCleanup(BrowserStackConfig.getInstance())
         if (Array.isArray(args) && args.length) {
             BStackLogger.debug('Spawning cleanup with args ' + args.toString())
             const childProcess = spawn('node', [`${path.join(__dirname, 'cleanup.js')}`, ...args], { detached: true, stdio: 'inherit', env: { ...process.env } })
             childProcess.unref()
-            process.exit(code)
+            originalExit.call(process, code)
         }
     })
 
     getInterruptSignals().forEach((sig: string) => {
         process.on(sig, () => {
+            const signalStack = new Error().stack
+            BStackLogger.debug(`Signal ${sig} received from: ${signalStack}`)
+
+            // Add specific context for each signal type
+            switch (sig) {
+            case 'SIGTERM':
+                BStackLogger.debug('SIGTERM - likely Jenkins timeout or external kill')
+                break
+            case 'SIGINT':
+                BStackLogger.debug('SIGINT - likely Ctrl+C or user interruption')
+                break
+            case 'SIGHUP':
+                BStackLogger.debug('SIGHUP - likely terminal closed or session ended')
+                break
+            case 'SIGABRT':
+                BStackLogger.debug('SIGABRT - likely process abort or assertion failure')
+                break
+            case 'SIGQUIT':
+                BStackLogger.debug('SIGQUIT - likely Ctrl+\\ or quit signal')
+                break
+            case 'SIGBREAK':
+                BStackLogger.debug('SIGBREAK - likely Ctrl+Break on Windows')
+                break
+            default:
+                BStackLogger.debug(`Unknown signal: ${sig}`)
+            }
+
             BrowserStackConfig.getInstance().setKillSignal(sig)
         })
+    })
+
+    // Track ALL ways the process can terminate
+    process.on('uncaughtException', (err) => {
+        BStackLogger.error(`Uncaught Exception causing exit: ${err.message}`)
+        BStackLogger.error(`Stack: ${err.stack}`)
+    })
+
+    process.on('unhandledRejection', (reason, promise) => {
+        BStackLogger.error(`Unhandled Rejection causing potential exit: ${reason}`)
+        BStackLogger.error(`Promise: ${promise}`)
     })
 }
 
