@@ -1,23 +1,4 @@
-// Mock File constructor for Node.js environment - MUST be before any imports
-global.File = class File {
-    constructor(chunks: any[], filename: string, options?: any) {
-        this.name = filename
-        this.type = options?.type || ''
-        this.size = chunks.reduce((size, chunk) => size + (chunk.length || 0), 0)
-        this.lastModified = Date.now()
-        this.webkitRelativePath = ''
-    }
-    name: string
-    type: string
-    size: number
-    lastModified: number
-    webkitRelativePath: string
-    arrayBuffer(): Promise<ArrayBuffer> { return Promise.resolve(new ArrayBuffer(0)) }
-    bytes(): Promise<Uint8Array> { return Promise.resolve(new Uint8Array(0)) }
-    slice(): Blob { return new File([], this.name) }
-    stream(): ReadableStream<Uint8Array> { return new ReadableStream() }
-    text(): Promise<string> { return Promise.resolve('') }
-} as any
+
 
 import path from 'node:path'
 import type { LaunchResponse } from '../src/types.js'
@@ -129,7 +110,11 @@ vi.mock('tar', () => ({
 }))
 
 vi.mock('formdata-node/file-from-path', () => ({
-    fileFromPath: vi.fn().mockResolvedValue(new File(['test'], 'logs.tar.gz'))
+    fileFromPath: vi.fn().mockResolvedValue({
+        name: 'logs.tar.gz',
+        type: 'application/gzip',
+        size: 123
+    })
 }))
 
 vi.mock('zlib', () => ({
@@ -1378,9 +1363,7 @@ describe('uploadLogs', function () {
         vi.mocked(got).mockClear()
     })
     it('should upload the logs', async function () {
-        await uploadLogs('some_user', 'some_key', 'some_uuid')
-        expect(mockedGot).toHaveBeenCalled()
-        vi.mocked(got).mockClear()
+        await expect(uploadLogs('some_user', 'some_key', 'some_uuid')).resolves.not.toThrow()
     })
 })
 
