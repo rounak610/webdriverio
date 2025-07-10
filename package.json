@@ -71,6 +71,7 @@
     "@aws-sdk/client-cloudfront": "^3.513.0",
     "@aws-sdk/client-s3": "^3.513.0",
     "@aws-sdk/lib-storage": "^3.513.0",
+    "@bufbuild/buf": "^1.55.1",
     "@octokit/rest": "^19.0.13",
     "@preact/preset-vite": "^2.8.1",
     "@serenity-js/core": "^3.17.0",
@@ -125,6 +126,7 @@
     "shx": "^0.3.4",
     "tempy": "^3.1.0",
     "ts-node": "^10.9.2",
+    "ts-proto": "^2.7.5",
     "typescript": "^5.3.3",
     "unzipper": "^0.12.1",
     "vitest": "^1.2.2"
