@@ -64,6 +64,28 @@ import type { Options } from '@wdio/types'
 
 const log = logger('test')
 
+// Mock File constructor for Node.js environment
+global.File = class File {
+    constructor(chunks: any[], filename: string, options?: any) {
+        this.name = filename
+        this.type = options?.type || ''
+        this.size = chunks.reduce((size, chunk) => size + (chunk.length || 0), 0)
+        this.lastModified = Date.now()
+        this.webkitRelativePath = ''
+    }
+    name: string
+    type: string
+    size: number
+    lastModified: number
+    webkitRelativePath: string
+    
+    arrayBuffer(): Promise<ArrayBuffer> { return Promise.resolve(new ArrayBuffer(0)) }
+    bytes(): Promise<Uint8Array> { return Promise.resolve(new Uint8Array(0)) }
+    slice(): Blob { return new File([], this.name) }
+    stream(): ReadableStream<Uint8Array> { return new ReadableStream() }
+    text(): Promise<string> { return Promise.resolve('') }
+} as any
+
 vi.mock('got')
 vi.mock('git-repo-info')
 vi.useFakeTimers().setSystemTime(new Date('2020-01-01'))
