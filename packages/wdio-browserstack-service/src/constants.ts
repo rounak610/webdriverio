@@ -124,11 +124,9 @@ export const BROWSERSTACK_ACCESSIBILITY = 'BROWSERSTACK_ACCESSIBILITY'
 export const BROWSERSTACK_OBSERVABILITY = 'BROWSERSTACK_OBSERVABILITY'
 
 // Maximum size of VCS info which is allowed
-export const MAX_GIT_META_DATA_SIZE_IN_BYTES = 64 * 1024
+export const MAX_GIT_META_DATA_SIZE_IN_BYTES = 64 * 1024 * 1
 
 /* The value to be appended at the end if git metadata is larger than
 MAX_GIT_META_DATA_SIZE_IN_BYTES
 */
 export const GIT_META_DATA_TRUNCATED = '...[TRUNCATED]'
-
-
