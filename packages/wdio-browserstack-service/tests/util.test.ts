@@ -78,7 +78,6 @@ global.File = class File {
     size: number
     lastModified: number
     webkitRelativePath: string
-    
     arrayBuffer(): Promise<ArrayBuffer> { return Promise.resolve(new ArrayBuffer(0)) }
     bytes(): Promise<Uint8Array> { return Promise.resolve(new Uint8Array(0)) }
     slice(): Blob { return new File([], this.name) }
