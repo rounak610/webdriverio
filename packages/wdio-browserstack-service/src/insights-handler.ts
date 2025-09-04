@@ -36,6 +36,9 @@ import { BStackLogger } from './bstackLogger.js'
 import type { Capabilities } from '@wdio/types'
 import Listener from './testOps/listener.js'
 import { TESTOPS_SCREENSHOT_ENV } from './constants.js'
+import { BrowserstackCLI } from './cli/index.js'
+import { TestFrameworkState } from './cli/states/testFrameworkState.js'
+import { HookState } from './cli/states/hookState.js'
 
 class _InsightsHandler {
     private _tests: Record<string, TestMeta> = {}
@@ -52,6 +55,7 @@ class _InsightsHandler {
         steps: []
     }
     private _userCaps?: Capabilities.RemoteCapability = {}
+    private _options?: BrowserstackConfig & Options.Testrunner
     private listener = Listener.getInstance()
     public currentTestId: string | undefined
     public cbtQueue: Array<CBTData> = []
@@ -61,6 +65,7 @@ class _InsightsHandler {
         const sessionId = (this._browser as WebdriverIO.Browser).sessionId
 
         this._userCaps = _userCaps
+        this._options = _options
 
         this._platformMeta = {
             browserName: caps.browserName,
@@ -90,6 +95,13 @@ class _InsightsHandler {
 
     setSuiteFile(filename: string) {
         this._suiteFile = filename
+    }
+
+    public async setGitConfigPath() {
+        const gitMeta = await getGitMetaData()
+        if (gitMeta) {
+            this._gitConfigPath = gitMeta.root
+        }
     }
 
     async before () {
@@ -366,6 +378,20 @@ class _InsightsHandler {
         return testData
     }
 
+    public setTestData (test: Frameworks.Test, uuid: string) {
+        InsightsHandler.currentTest = {
+            test, uuid
+        }
+        if (this._framework !== 'mocha') {
+            return
+        }
+        const fullTitle = getUniqueIdentifier(test, this._framework)
+        this._tests[fullTitle] = {
+            uuid,
+            startedAt: (new Date()).toISOString()
+        }
+    }
+
     async beforeTest (test: Frameworks.Test) {
         const uuid = uuidv4()
         InsightsHandler.currentTest = {
@@ -379,6 +405,7 @@ class _InsightsHandler {
             uuid,
             startedAt: (new Date()).toISOString()
         }
+
         this.listener.testStarted(this.getRunData(test, 'TestRunStarted'))
     }
 
@@ -501,6 +528,11 @@ class _InsightsHandler {
 
     appendTestItemLog = async (stdLog: StdLog) => {
         try {
+            if (BrowserstackCLI.getInstance().isRunning()) {
+                await BrowserstackCLI.getInstance().getTestFramework()!.trackEvent(TestFrameworkState.LOG, HookState.POST, { logEntry: stdLog })
+                return
+            }
+
             if (this._currentHook.uuid && !this._currentHook.finished && (this._framework === 'mocha' || this._framework === 'cucumber')) {
                 stdLog.hook_run_uuid = this._currentHook.uuid
             } else if (InsightsHandler.currentTest.uuid && (this._framework === 'mocha' || this._framework === 'cucumber')) {
@@ -510,7 +542,7 @@ class _InsightsHandler {
                 this.listener.logCreated([stdLog])
             }
         } catch (error) {
-            BStackLogger.debug(`Exception in uploading log data to Observability with error : ${error}`)
+            BStackLogger.debug(`Exception in uploading log data to Test Reporting and Analytics with error : ${error}`)
         }
     }
 
@@ -565,6 +597,26 @@ class _InsightsHandler {
     /*
      * private methods
      */
+
+    /**
+     * Check if any test steps failed (excluding hook failures)
+     * This is used when ignoreHooksStatus is true to determine test status based only on test steps
+     */
+    public hasTestStepFailures(world: ITestCaseHookParameter): boolean {
+        if (!world?.pickle) {
+            return false
+        }
+
+        const uniqueId = getUniqueIdentifierForCucumber(world)
+        const testMetaData = this._tests[uniqueId]
+
+        if (!testMetaData?.steps) {
+            return false
+        }
+
+        // Check if any step failed
+        return testMetaData.steps.some(step => step.result === 'FAILED')
+    }
 
     private attachHookData (context: any, hookId: string): void {
         if (context.currentTest && context.currentTest.parent) {
@@ -796,6 +848,18 @@ class _InsightsHandler {
             if (result !== 'passed' && result !== 'failed') {
                 result = 'skipped' // mark UNKNOWN/UNDEFINED/AMBIGUOUS/PENDING as skipped
             }
+
+            // Handle ignoreHooksStatus: when enabled and scenario failed, check if it's due to hook failures only
+            const ignoreHooksStatus = this._options?.testObservabilityOptions?.ignoreHooksStatus === true
+            if (ignoreHooksStatus && result === 'failed' && world) {
+                // Check if any test steps failed (excluding hook failures)
+                const hasTestStepFailures = this.hasTestStepFailures(world)
+                if (!hasTestStepFailures) {
+                    // Only hooks failed, override result to passed for Test Observability
+                    result = 'passed'
+                }
+            }
+
             testData.finished_at = (new Date()).toISOString()
             testData.result = result
             testData.duration_in_ms = world.result.duration.seconds * 1000 + world.result.duration.nanos / 1000000 // send duration in ms
@@ -828,6 +892,7 @@ class _InsightsHandler {
     }
 
     public async flushCBTDataQueue() {
+        BStackLogger.debug(`Flushing CBT Data Queue ${this.currentTestId}`)
         if (isUndefined(this.currentTestId)) {return}
         this.cbtQueue.forEach(cbtData => {
             cbtData.uuid = this.currentTestId!
@@ -848,6 +913,7 @@ class _InsightsHandler {
             uuid: '',
             integrations: integrationsData
         }
+        BStackLogger.debug(`Sending CBT Data ${this.currentTestId} ${JSON.stringify(cbtData)}`)
 
         if (this.currentTestId !== undefined) {
             cbtData.uuid = this.currentTestId
