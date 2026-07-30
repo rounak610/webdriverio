@@ -498,6 +498,21 @@ export default class BrowserstackLauncherService implements Services.ServiceInst
         if (BrowserstackCLI.getInstance().isRunning()) {
             return
         }
+
+        // BROWSERSTACK_LOCAL / BROWSERSTACK_LOCAL_IDENTIFIER env vars override the service
+        // config, mirroring the other BROWSERSTACK_* env-var overrides. Without this, setting
+        // only the env vars leaves browserstackLocal unset, so Local is never enabled and the
+        // local / localIdentifier caps are never stamped.
+        if (!isUndefined(process.env.BROWSERSTACK_LOCAL)) {
+            this._options.browserstackLocal = isTrue(process.env.BROWSERSTACK_LOCAL)
+        }
+        if (process.env.BROWSERSTACK_LOCAL_IDENTIFIER) {
+            this._options.opts = {
+                ...this._options.opts,
+                localIdentifier: process.env.BROWSERSTACK_LOCAL_IDENTIFIER
+            }
+        }
+
         if (!this._options.browserstackLocal) {
             return BStackLogger.info('browserstackLocal is not enabled - skipping...')
         }
